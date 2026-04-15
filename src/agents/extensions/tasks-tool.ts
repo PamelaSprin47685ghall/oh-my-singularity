@@ -24,6 +24,7 @@ import type { ExtensionAPI, ToolRenderResultOptions, ToolResultWithError, ToolTh
 
 const ELLIPSIS_UNICODE = Ellipsis.Unicode;
 const NO_PADDING = false;
+const TAB_WIDTH = 2;
 
 type TasksExtensionOptions = {
 	agentType?: string;
@@ -327,7 +328,7 @@ function formatTasksStructuredRenderLines(
 	if (!options.expanded && structured.truncated) {
 		lines.push(`  ${theme.fg("dim", "(Ctrl+O for more)")}`);
 	}
-	return lines.map(line => truncateToWidth(line, width, ELLIPSIS_UNICODE, NO_PADDING));
+	return lines.map(line => truncateToWidth(line, width, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH));
 }
 function formatTasksActionContextHint(action: string, args: UnknownRecord | undefined): string {
 	const rec = toRecord(args, {});
@@ -518,7 +519,13 @@ function formatMultilinePreview(text: string, width: number, maxLines: number): 
 	}
 	const lines = normalized.slice(0, maxLines);
 	const tail = lines[maxLines - 1] ?? "";
-	lines[maxLines - 1] = truncateToWidth(`${tail}…`, Math.max(1, width), ELLIPSIS_UNICODE, NO_PADDING);
+	lines[maxLines - 1] = truncateToWidth(
+		`${tail}…`,
+		Math.max(1, width),
+		ELLIPSIS_UNICODE,
+		NO_PADDING,
+		TAB_WIDTH,
+	);
 	return {
 		lines,
 		truncated: true,
@@ -609,7 +616,7 @@ function makeIndentedRow(width: number, text: string, scope: string, theme: Tool
 	return `  ${theme.fg(scope, padInline(text, contentWidth))}`;
 }
 function padInline(text: string, width: number): string {
-	const clipped = truncateToWidth(text, width, ELLIPSIS_UNICODE, NO_PADDING);
+	const clipped = truncateToWidth(text, width, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH);
 	if (clipped.length >= width) return clipped;
 	return `${clipped}${" ".repeat(width - clipped.length)}`;
 }
