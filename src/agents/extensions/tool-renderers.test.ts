@@ -48,14 +48,15 @@ describe("tool renderers", () => {
 
 		const lines = component.render(10);
 		expect(lines.length).toBeGreaterThan(1);
-		expect(lines.join("")).toContain("换行测试");
+		expect(lines.join("\n")).toContain("换行测试");
 	});
 
 	test("renderToolCall normalizes tab characters in arguments", () => {
 		const component = renderToolCall("测试工具", () => ["参数\t值"], theme, { isPartial: true });
 
 		const lines = component.render(20);
-		expect(lines.join("\n")).not.toContain("\t");
-		expect(lines.join("\n")).toContain("参数");
+		const output = lines.join("\n");
+		expect(output).not.toContain("\t");
+		expect(output).toContain("参数");
 	});
 });
