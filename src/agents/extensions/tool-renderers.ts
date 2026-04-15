@@ -13,6 +13,7 @@ const MAX_ARG_PREVIEW = 80;
 const COLLAPSED_LINES = 3;
 const EXPANDED_LINES = 20;
 const BODY_INDENT = "  ";
+const MIN_WIDTH = 1;
 
 /**
  * renderCall: status icon + tool label + key args.
@@ -22,14 +23,18 @@ const BODY_INDENT = "  ";
  */
 export function renderToolCall(
 	toolLabel: string | (() => string),
-	args: string[] | (() => string[]),
+	args: readonly unknown[] | (() => readonly unknown[]),
 	theme: ToolTheme,
 	options?: ToolRenderCallOptions,
 ): ToolRenderComponent {
 	const separator = theme.sep?.dot ? ` ${theme.sep.dot} ` : " · ";
 	const resolveArgs = () => {
 		const resolved = typeof args === "function" ? args() : args;
-		return resolved.map(arg => arg.trim()).filter(Boolean);
+		if (!Array.isArray(resolved)) return [];
+		return resolved
+			.filter((arg): arg is string => typeof arg === "string")
+			.map(arg => arg.trim())
+			.filter(Boolean);
 	};
 	const makeTitle = () => {
 		const resolved = typeof toolLabel === "function" ? toolLabel() : toolLabel;
@@ -37,6 +42,7 @@ export function renderToolCall(
 	};
 	return {
 		render(width: number): string[] {
+			const renderWidth = normalizeWidth(width);
 			const hasResult = Boolean(options?.result);
 			const isStreaming = !hasResult || options?.isPartial === true;
 			const status =
@@ -51,13 +57,13 @@ export function renderToolCall(
 			const header = `${icon} ${makeTitle()}`;
 			const visibleArgs = resolveArgs();
 			if (isStreaming && visibleArgs.length > 0) {
-				const lines = [truncateToWidth(header, width)];
-				const wrappedWidth = Math.max(1, width - BODY_INDENT.length);
+				const lines = [truncateToWidth(header, renderWidth)];
+				const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 				for (const arg of visibleArgs) {
 					const wrapped = wrapLine(arg, wrappedWidth);
 					if (wrapped.length === 0) continue;
 					for (const line of wrapped) {
-						lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("muted", line)}`, width));
+						lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("muted", line)}`, renderWidth));
 					}
 				}
 				return lines;
@@ -65,10 +71,10 @@ export function renderToolCall(
 
 			const argsPreview = visibleArgs.join(separator);
 			const previewText = argsPreview || extractSummaryLine(options?.result);
-			const preview = truncateToWidth(previewText, MAX_ARG_PREVIEW);
+			const preview = truncateToWidth(normalizeText(previewText), MAX_ARG_PREVIEW);
 			const summaryScope = !argsPreview && options?.result?.isError === true ? "error" : "muted";
 			const suffix = preview ? `${separator}${theme.fg(summaryScope, preview)}` : "";
-			return [truncateToWidth(`${header}${suffix}`, width)];
+			return [truncateToWidth(`${header}${suffix}`, renderWidth)];
 		},
 	};
 }
@@ -98,26 +104,38 @@ export function renderToolResult(
 
 	return {
 		render(width: number): string[] {
+			const renderWidth = normalizeWidth(width);
 			const lines: string[] = [];
-			const wrappedWidth = Math.max(1, width - BODY_INDENT.length);
+			const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 			for (const line of visibleBody) {
 				const wrapped = wrapLine(line, wrappedWidth);
 				if (wrapped.length === 0) {
-					lines.push(truncateToWidth(BODY_INDENT, width));
+					lines.push(truncateToWidth(BODY_INDENT, renderWidth));
 					continue;
 				}
 				for (const bodyLine of wrapped) {
 					lines.push(
-						truncateToWidth(`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`, width),
+						truncateToWidth(`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`, renderWidth),
 					);
 				}
 			}
 			if (!options.expanded && hasMore) {
-				lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`, width));
+				lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`, renderWidth));
 			}
 			return lines;
 		},
 	};
+}
+
+function normalizeText(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (value === null || value === undefined) return "";
+	return String(value);
+}
+
+function normalizeWidth(value: unknown): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return MAX_ARG_PREVIEW;
+	return Math.max(MIN_WIDTH, Math.trunc(value));
 }
 
 function styledIcon(
