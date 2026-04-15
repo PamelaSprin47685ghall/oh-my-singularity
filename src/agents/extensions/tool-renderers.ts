@@ -1,4 +1,4 @@
-import { truncateToWidth } from "@oh-my-pi/pi-natives";
+import { Ellipsis, truncateToWidth } from "@oh-my-pi/pi-natives";
 import { wrapLine } from "../../tui/components/text-formatter";
 import type {
 	ToolParams,
@@ -14,6 +14,8 @@ const COLLAPSED_LINES = 3;
 const EXPANDED_LINES = 20;
 const BODY_INDENT = "  ";
 const MIN_WIDTH = 1;
+const ELLIPSIS_UNICODE = Ellipsis.Unicode;
+const NO_PADDING = false;
 
 /**
  * renderCall: status icon + tool label + key args.
@@ -57,13 +59,15 @@ export function renderToolCall(
 			const header = `${icon} ${makeTitle()}`;
 			const visibleArgs = resolveArgs();
 			if (isStreaming && visibleArgs.length > 0) {
-				const lines = [truncateToWidth(header, renderWidth)];
+				const lines = [truncateToWidth(header, renderWidth, ELLIPSIS_UNICODE, NO_PADDING)];
 				const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 				for (const arg of visibleArgs) {
 					const wrapped = wrapLine(arg, wrappedWidth);
 					if (wrapped.length === 0) continue;
 					for (const line of wrapped) {
-						lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("muted", line)}`, renderWidth));
+						lines.push(
+							truncateToWidth(`${BODY_INDENT}${theme.fg("muted", line)}`, renderWidth, ELLIPSIS_UNICODE, NO_PADDING),
+						);
 					}
 				}
 				return lines;
@@ -71,10 +75,10 @@ export function renderToolCall(
 
 			const argsPreview = visibleArgs.join(separator);
 			const previewText = argsPreview || extractSummaryLine(options?.result);
-			const preview = truncateToWidth(normalizeText(previewText), MAX_ARG_PREVIEW);
+			const preview = truncateToWidth(normalizeText(previewText), MAX_ARG_PREVIEW, ELLIPSIS_UNICODE, NO_PADDING);
 			const summaryScope = !argsPreview && options?.result?.isError === true ? "error" : "muted";
 			const suffix = preview ? `${separator}${theme.fg(summaryScope, preview)}` : "";
-			return [truncateToWidth(`${header}${suffix}`, renderWidth)];
+			return [truncateToWidth(`${header}${suffix}`, renderWidth, ELLIPSIS_UNICODE, NO_PADDING)];
 		},
 	};
 }
@@ -110,17 +114,29 @@ export function renderToolResult(
 			for (const line of visibleBody) {
 				const wrapped = wrapLine(line, wrappedWidth);
 				if (wrapped.length === 0) {
-					lines.push(truncateToWidth(BODY_INDENT, renderWidth));
+					lines.push(truncateToWidth(BODY_INDENT, renderWidth, ELLIPSIS_UNICODE, NO_PADDING));
 					continue;
 				}
 				for (const bodyLine of wrapped) {
 					lines.push(
-						truncateToWidth(`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`, renderWidth),
+						truncateToWidth(
+							`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`,
+							renderWidth,
+							ELLIPSIS_UNICODE,
+							NO_PADDING,
+						),
 					);
 				}
 			}
 			if (!options.expanded && hasMore) {
-				lines.push(truncateToWidth(`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`, renderWidth));
+				lines.push(
+					truncateToWidth(
+						`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`,
+						renderWidth,
+						ELLIPSIS_UNICODE,
+						NO_PADDING,
+					),
+				);
 			}
 			return lines;
 		},
