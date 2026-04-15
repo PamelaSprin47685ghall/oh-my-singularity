@@ -49,6 +49,9 @@ describe("tool renderers", () => {
 		const lines = component.render(10);
 		expect(lines.length).toBeGreaterThan(1);
 		expect(lines.join("\n")).toContain("换行测试");
+		for (const line of lines) {
+			expect(Bun.stringWidth(line)).toBeLessThanOrEqual(10);
+		}
 	});
 
 	test("renderToolCall normalizes tab characters in arguments", () => {
