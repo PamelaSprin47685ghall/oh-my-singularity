@@ -1,4 +1,4 @@
-import { truncateToWidth } from "@oh-my-pi/pi-natives";
+import { Ellipsis, truncateToWidth } from "@oh-my-pi/pi-natives";
 import { wrapLine } from "../../tui/components/text-formatter";
 import type {
 	ToolParams,
@@ -14,7 +14,7 @@ const COLLAPSED_LINES = 3;
 const EXPANDED_LINES = 20;
 const BODY_INDENT = "  ";
 const MIN_WIDTH = 1;
-const ELLIPSIS_UNICODE = 0;
+const ELLIPSIS_UNICODE = Ellipsis.Unicode;
 const NO_PADDING = false;
 
 /**

@@ -6,7 +6,7 @@
  * enforce task permissions via tool availability.
  */
 
-import { truncateToWidth } from "@oh-my-pi/pi-natives";
+import { Ellipsis, truncateToWidth } from "@oh-my-pi/pi-natives";
 import type { TaskComment, TaskIssue } from "../../tasks/types";
 import { sanitizeRenderableText, wrapLine } from "../../tui/components/text-formatter";
 import {
@@ -22,7 +22,7 @@ import { ipcError, requireSockPath, sendIpc } from "./ipc-client";
 import { createToolRenderers } from "./tool-renderers";
 import type { ExtensionAPI, ToolRenderResultOptions, ToolResultWithError, ToolTheme, UnknownRecord } from "./types";
 
-const ELLIPSIS_UNICODE = 0;
+const ELLIPSIS_UNICODE = Ellipsis.Unicode;
 const NO_PADDING = false;
 
 type TasksExtensionOptions = {
