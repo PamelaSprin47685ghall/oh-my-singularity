@@ -1,5 +1,5 @@
-import { Ellipsis, truncateToWidth } from "@oh-my-pi/pi-natives";
-import { wrapLine } from "../../tui/components/text-formatter";
+import { Ellipsis, truncateToWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-natives";
+import { sanitizeRenderableText } from "../../tui/components/text-formatter";
 import type {
 	ToolParams,
 	ToolRenderCallOptions,
@@ -36,7 +36,7 @@ export function renderToolCall(
 		if (!Array.isArray(resolved)) return [];
 		return resolved
 			.filter((arg): arg is string => typeof arg === "string")
-			.map(arg => arg.trim())
+			.map(arg => sanitizeRenderableText(arg).trim())
 			.filter(Boolean);
 	};
 	const makeTitle = () => {
@@ -63,7 +63,7 @@ export function renderToolCall(
 				const lines = [truncateToWidth(header, renderWidth, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH)];
 				const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 				for (const arg of visibleArgs) {
-					const wrapped = wrapLine(arg, wrappedWidth);
+					const wrapped = wrapTextWithAnsi(arg, wrappedWidth, TAB_WIDTH);
 					if (wrapped.length === 0) continue;
 					for (const line of wrapped) {
 						lines.push(
@@ -125,7 +125,7 @@ export function renderToolResult(
 			const lines: string[] = [];
 			const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 			for (const line of visibleBody) {
-				const wrapped = wrapLine(line, wrappedWidth);
+				const wrapped = wrapTextWithAnsi(line, wrappedWidth, TAB_WIDTH);
 				if (wrapped.length === 0) {
 					lines.push(truncateToWidth(BODY_INDENT, renderWidth, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH));
 					continue;
@@ -159,9 +159,9 @@ export function renderToolResult(
 }
 
 function normalizeText(value: unknown): string {
-	if (typeof value === "string") return value;
+	if (typeof value === "string") return sanitizeRenderableText(value);
 	if (value === null || value === undefined) return "";
-	return String(value);
+	return sanitizeRenderableText(String(value));
 }
 
 function normalizeWidth(value: unknown): number {
@@ -204,7 +204,9 @@ function extractTextLines(result: ToolResultWithError): string[] {
 	if (!Array.isArray(content)) return [];
 	for (const block of content) {
 		if (block.type === "text" && typeof block.text === "string") {
-			return block.text.split("\n").map(l => l.trimEnd());
+			return sanitizeRenderableText(block.text)
+				.split("\n")
+				.map(line => line.trimEnd());
 		}
 	}
 	return [];
