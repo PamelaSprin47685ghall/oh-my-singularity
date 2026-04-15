@@ -1,5 +1,5 @@
-import { truncateToWidth } from "@oh-my-pi/pi-natives";
-import { wrapLine } from "../../tui/components/text-formatter";
+import { Ellipsis, truncateToWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-natives";
+import { sanitizeRenderableText } from "../../tui/components/text-formatter";
 import type {
 	ToolParams,
 	ToolRenderCallOptions,
@@ -14,6 +14,9 @@ const COLLAPSED_LINES = 3;
 const EXPANDED_LINES = 20;
 const BODY_INDENT = "  ";
 const MIN_WIDTH = 1;
+const ELLIPSIS_UNICODE = Ellipsis.Unicode;
+const NO_PADDING = false;
+const TAB_WIDTH = 2;
 
 /**
  * renderCall: status icon + tool label + key args.
@@ -33,7 +36,7 @@ export function renderToolCall(
 		if (!Array.isArray(resolved)) return [];
 		return resolved
 			.filter((arg): arg is string => typeof arg === "string")
-			.map(arg => arg.trim())
+			.map(arg => sanitizeRenderableText(arg).trim())
 			.filter(Boolean);
 	};
 	const makeTitle = () => {
@@ -57,14 +60,20 @@ export function renderToolCall(
 			const header = `${icon} ${makeTitle()}`;
 			const visibleArgs = resolveArgs();
 			if (isStreaming && visibleArgs.length > 0) {
-				const lines = [truncateToWidth(header, renderWidth)];
+				const lines = [truncateToWidth(header, renderWidth, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH)];
 				const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 				for (const arg of visibleArgs) {
-					const wrapped = wrapLine(arg, wrappedWidth);
+					const wrapped = wrapTextWithAnsi(arg, wrappedWidth, TAB_WIDTH);
 					if (wrapped.length === 0) continue;
 					for (const line of wrapped) {
 						lines.push(
-							truncateToWidth(`${BODY_INDENT}${theme.fg("muted", line)}`, renderWidth),
+							truncateToWidth(
+								`${BODY_INDENT}${theme.fg("muted", line)}`,
+								renderWidth,
+								ELLIPSIS_UNICODE,
+								NO_PADDING,
+								TAB_WIDTH,
+							),
 						);
 					}
 				}
@@ -73,10 +82,16 @@ export function renderToolCall(
 
 			const argsPreview = visibleArgs.join(separator);
 			const previewText = argsPreview || extractSummaryLine(options?.result);
-			const preview = truncateToWidth(normalizeText(previewText), MAX_ARG_PREVIEW);
+			const preview = truncateToWidth(
+				normalizeText(previewText),
+				MAX_ARG_PREVIEW,
+				ELLIPSIS_UNICODE,
+				NO_PADDING,
+				TAB_WIDTH,
+			);
 			const summaryScope = !argsPreview && options?.result?.isError === true ? "error" : "muted";
 			const suffix = preview ? `${separator}${theme.fg(summaryScope, preview)}` : "";
-			return [truncateToWidth(`${header}${suffix}`, renderWidth)];
+			return [truncateToWidth(`${header}${suffix}`, renderWidth, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH)];
 		},
 	};
 }
@@ -110,20 +125,32 @@ export function renderToolResult(
 			const lines: string[] = [];
 			const wrappedWidth = Math.max(MIN_WIDTH, renderWidth - BODY_INDENT.length);
 			for (const line of visibleBody) {
-				const wrapped = wrapLine(line, wrappedWidth);
+				const wrapped = wrapTextWithAnsi(line, wrappedWidth, TAB_WIDTH);
 				if (wrapped.length === 0) {
-					lines.push(truncateToWidth(BODY_INDENT, renderWidth));
+					lines.push(truncateToWidth(BODY_INDENT, renderWidth, ELLIPSIS_UNICODE, NO_PADDING, TAB_WIDTH));
 					continue;
 				}
 				for (const bodyLine of wrapped) {
 					lines.push(
-						truncateToWidth(`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`, renderWidth),
+						truncateToWidth(
+							`${BODY_INDENT}${theme.fg(isError ? "error" : "toolOutput", bodyLine)}`,
+							renderWidth,
+							ELLIPSIS_UNICODE,
+							NO_PADDING,
+							TAB_WIDTH,
+						),
 					);
 				}
 			}
 			if (!options.expanded && hasMore) {
 				lines.push(
-					truncateToWidth(`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`, renderWidth),
+					truncateToWidth(
+						`${BODY_INDENT}${theme.fg("dim", "(Ctrl+O for more)")}`,
+						renderWidth,
+						ELLIPSIS_UNICODE,
+						NO_PADDING,
+						TAB_WIDTH,
+					),
 				);
 			}
 			return lines;
@@ -132,9 +159,9 @@ export function renderToolResult(
 }
 
 function normalizeText(value: unknown): string {
-	if (typeof value === "string") return value;
+	if (typeof value === "string") return sanitizeRenderableText(value);
 	if (value === null || value === undefined) return "";
-	return String(value);
+	return sanitizeRenderableText(String(value));
 }
 
 function normalizeWidth(value: unknown): number {
@@ -177,7 +204,9 @@ function extractTextLines(result: ToolResultWithError): string[] {
 	if (!Array.isArray(content)) return [];
 	for (const block of content) {
 		if (block.type === "text" && typeof block.text === "string") {
-			return block.text.split("\n").map(l => l.trimEnd());
+			return sanitizeRenderableText(block.text)
+				.split("\n")
+				.map(line => line.trimEnd());
 		}
 	}
 	return [];

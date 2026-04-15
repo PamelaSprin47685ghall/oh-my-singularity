@@ -37,4 +37,29 @@ describe("tool renderers", () => {
 		expect(lines.length).toBeGreaterThan(0);
 		expect(lines.join("\n")).toContain("第一行中文");
 	});
+
+	test("renderToolResult wraps long Chinese lines under narrow width", () => {
+		const component = renderToolResult(
+			"测试工具",
+			{ content: [{ type: "text", text: "这是一个很长的中文句子用于换行测试" }] },
+			{ expanded: true, isPartial: false },
+			theme,
+		);
+
+		const lines = component.render(10);
+		expect(lines.length).toBeGreaterThan(1);
+		expect(lines.join("\n")).toContain("换行测试");
+		for (const line of lines) {
+			expect(Bun.stringWidth(line)).toBeLessThanOrEqual(10);
+		}
+	});
+
+	test("renderToolCall normalizes tab characters in arguments", () => {
+		const component = renderToolCall("测试工具", () => ["参数\t值"], theme, { isPartial: true });
+
+		const lines = component.render(20);
+		const output = lines.join("\n");
+		expect(output).not.toContain("\t");
+		expect(output).toContain("参数");
+	});
 });
