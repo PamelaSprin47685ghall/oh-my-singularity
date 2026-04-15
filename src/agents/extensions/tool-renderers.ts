@@ -23,7 +23,7 @@ const MIN_WIDTH = 1;
  */
 export function renderToolCall(
 	toolLabel: string | (() => string),
-	args: string[] | (() => string[]),
+	args: readonly unknown[] | (() => readonly unknown[]),
 	theme: ToolTheme,
 	options?: ToolRenderCallOptions,
 ): ToolRenderComponent {

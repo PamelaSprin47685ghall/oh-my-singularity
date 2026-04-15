@@ -9,6 +9,8 @@ const theme: ToolTheme = {
 	sep: { dot: "·" },
 	spinnerFrames: ["⠋", "⠙", "⠹"],
 };
+// Runtime guard case: external renderer callers can still pass an invalid width.
+const INVALID_WIDTH = undefined as unknown as number;
 
 describe("tool renderers", () => {
 	test("renderToolCall handles undefined width with Chinese summary text", () => {
@@ -17,7 +19,7 @@ describe("tool renderers", () => {
 			result: { content: [{ type: "text", text: "中文结果预览" }] },
 		});
 
-		const lines = component.render(undefined as unknown as number);
+		const lines = component.render(INVALID_WIDTH);
 		expect(lines.length).toBeGreaterThan(0);
 		expect(lines[0]).toContain("测试工具");
 		expect(lines[0]).toContain("中文结果预览");
@@ -31,7 +33,7 @@ describe("tool renderers", () => {
 			theme,
 		);
 
-		const lines = component.render(undefined as unknown as number);
+		const lines = component.render(INVALID_WIDTH);
 		expect(lines.length).toBeGreaterThan(0);
 		expect(lines.join("\n")).toContain("第一行中文");
 	});
