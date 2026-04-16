@@ -293,7 +293,7 @@ export class RpcHandlerManager {
 				if (!advance) {
 					const rpc = agent.rpc;
 					const ageMs = Date.now() - (agent.spawnedAt ?? 0);
-					const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+					const maxWaitMs = ageMs < 300_000 ? 300_000 : 60_000;
 					const continued = rpc && rpc instanceof OmsRpcClient ? await rpc.waitForAutoLoopContinuation(maxWaitMs) : false;
 					if (continued) {
 						// Auto-loop extension restarted the agent; leave it running.
@@ -399,7 +399,7 @@ export class RpcHandlerManager {
 				if (!record && taskId) {
 					const rpc = agent.rpc;
 					const ageMs = Date.now() - (agent.spawnedAt ?? 0);
-					const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+					const maxWaitMs = ageMs < 300_000 ? 300_000 : 60_000;
 					const continued = rpc && rpc instanceof OmsRpcClient ? await rpc.waitForAutoLoopContinuation(maxWaitMs) : false;
 					if (continued) {
 						// Auto-loop extension restarted the agent; leave it running.

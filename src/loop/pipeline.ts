@@ -692,7 +692,7 @@ export class PipelineManager {
 			// agent or 10s for an older agent to see if an auto-loop extension restarts
 			// the agent (steer -> agent_start).
 			const ageMs = Date.now() - (agent.spawnedAt ?? 0);
-			const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+			const maxWaitMs = ageMs < 300_000 ? 300_000 : 60_000;
 			const continued = await agentRpc.waitForAutoLoopContinuation(maxWaitMs);
 			if (continued) {
 				this.loopLog(`${agentLabel} continued via auto-loop for ${task.id}`, "info", {
