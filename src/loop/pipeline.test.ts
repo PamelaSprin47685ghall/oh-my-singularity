@@ -138,7 +138,7 @@ describe("PipelineManager resume pipeline", () => {
 			}
 		).emitEvent.bind(rpc) as (event: unknown) => void;
 		let resolved = false;
-		const waitPromise = rpc.waitForAgentEnd(500).then(() => {
+		const waitPromise = rpc.waitForAgentEnd(2000).then(() => {
 			resolved = true;
 		});
 
@@ -160,7 +160,7 @@ describe("PipelineManager resume pipeline", () => {
 			}
 		).emitEvent.bind(rpc) as (event: unknown) => void;
 		let resolved = false;
-		const waitPromise = rpc.waitForAgentEnd(500).then(() => {
+		const waitPromise = rpc.waitForAgentEnd(2000).then(() => {
 			resolved = true;
 		});
 
