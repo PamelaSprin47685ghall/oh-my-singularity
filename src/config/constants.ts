@@ -18,6 +18,9 @@ export const TIMEOUT_STALE_AGENT_TTL_MS = 15 * MILLISECONDS_PER_MINUTE;
 export const TIMEOUT_AGENT_WAIT_MS = MILLISECONDS_PER_DAY;
 export const TIMEOUT_QUIET_WINDOW_BASE_MS = 1_500;
 export const TIMEOUT_QUIET_WINDOW_POLL_OFFSET_MS = TIMEOUT_MIN_MS;
+// Grace period after agent_end before steering for a missing advance_lifecycle call.
+// If a new turn starts within this window (auto-loop or any extension), no steer is sent.
+export const TIMEOUT_AGENT_LIFECYCLE_STEER_GRACE_MS = 5_000;
 export const TIMEOUT_REGISTRY_DEFAULT_INTERVAL_MS = 15_000;
 
 export const TIMEOUT_AGENT_STOP_GRACE_MS = 2_000;

@@ -2,7 +2,12 @@ import type { AgentRegistry } from "../agents/registry";
 import { OmsRpcClient } from "../agents/rpc-wrapper";
 import type { AgentSpawner } from "../agents/spawner";
 import type { AgentInfo } from "../agents/types";
-import { getAgentLifecycleConfig, LIMIT_AGENT_MAX_RETRIES, type LifecycleAction } from "../config/constants";
+import {
+	getAgentLifecycleConfig,
+	LIMIT_AGENT_MAX_RETRIES,
+	type LifecycleAction,
+	TIMEOUT_AGENT_LIFECYCLE_STEER_GRACE_MS,
+} from "../config/constants";
 import type { TaskStoreClient } from "../tasks/client";
 import type { TaskIssue } from "../tasks/types";
 import { logger } from "../utils";
@@ -688,12 +693,9 @@ export class PipelineManager {
 		let record = this.takeLifecycleRecord(task.id);
 
 		if (!record) {
-			// Abnormal exit without lifecycle signal: wait up to 30s for a newly spawned
-			// agent or 10s for an older agent to see if an auto-loop extension restarts
-			// the agent (steer -> agent_start).
-			const ageMs = Date.now() - (agent.spawnedAt ?? 0);
-			const maxWaitMs = ageMs < 300_000 ? 300_000 : 60_000;
-			const continued = await agentRpc.waitForAutoLoopContinuation(maxWaitMs);
+			// Wait 5s: if a new turn starts within this window (auto-loop or any extension),
+			// don't steer — the agent is already continuing on its own.
+			const continued = await agentRpc.waitForAutoLoopContinuation(TIMEOUT_AGENT_LIFECYCLE_STEER_GRACE_MS);
 			if (continued) {
 				this.loopLog(`${agentLabel} continued via auto-loop for ${task.id}`, "info", {
 					taskId: task.id,
@@ -707,8 +709,33 @@ export class PipelineManager {
 					agentStatus,
 				};
 			}
-			// Re-check in case advance_lifecycle arrived during the wait window.
+			// Re-check in case advance_lifecycle arrived during the 5s window.
 			record = this.takeLifecycleRecord(task.id);
+			if (!record) {
+				// No new turn and no lifecycle record — steer immediately.
+				this.loopLog(`${agentLabel} ended without advance_lifecycle for ${task.id}; steering`, "warn", {
+					taskId: task.id,
+					mode: step.mode,
+				});
+				try {
+					await agentRpc.steer(
+						"[SYSTEM] Your turn ended without calling `advance_lifecycle`. Call it now with the appropriate action, then stop.",
+					);
+				} catch (err) {
+					logger.debug("loop/pipeline.ts: steer after missing advance_lifecycle failed (non-fatal)", { err });
+				}
+				try {
+					await agentRpc.waitForAgentEnd(300_000);
+				} catch {
+					// timeout or rpc_exit — fall through to missingAdvanceTool failure
+				}
+				try {
+					text = await agentRpc.getLastAssistantText();
+				} catch {
+					// non-fatal
+				}
+				record = this.takeLifecycleRecord(task.id);
+			}
 		}
 
 		await this.finishAgent(agent, "done");
