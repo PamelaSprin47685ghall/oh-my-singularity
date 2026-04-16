@@ -14,6 +14,7 @@ function makeRpc(overrides: Record<string, unknown> = {}): OmsRpcClient {
 		abort: async () => {},
 		stop: async () => {},
 		steer: async (_message: string) => {},
+		waitForAutoLoopContinuation: async () => false,
 		...overrides,
 	});
 	return rpc;
@@ -1684,8 +1685,7 @@ describe("AgentLoop finisher exit routing", () => {
 		expect(calls.comment[0]?.taskId).toBe("task-retry-limit");
 		expect(calls.comment[0]?.text).toContain("Finisher retries exhausted");
 		expect(calls.comment[0]?.text).toContain(`${LIMIT_AGENT_MAX_RETRIES}`);
-	},
-	15000);
+	});
 
 	test("finisher advance_lifecycle routes worker, issuer, and defer actions", async () => {
 		const runCase = async (action: "worker" | "issuer" | "defer") => {

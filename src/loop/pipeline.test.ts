@@ -131,14 +131,14 @@ describe("PipelineManager resume pipeline", () => {
 	});
 
 	test("waitForAgentEnd ignores suppressed abort agent_end and resolves on the next turn end", async () => {
-		const rpc = new OmsRpcClient();
+		const rpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const emitEvent = (
 			rpc as unknown as {
 				emitEvent: (event: unknown) => void;
 			}
 		).emitEvent.bind(rpc) as (event: unknown) => void;
 		let resolved = false;
-		const waitPromise = rpc.waitForAgentEnd(2000).then(() => {
+		const waitPromise = rpc.waitForAgentEnd(500).then(() => {
 			resolved = true;
 		});
 
@@ -153,14 +153,14 @@ describe("PipelineManager resume pipeline", () => {
 	});
 
 	test("waitForAgentEnd honors stacked suppressions", async () => {
-		const rpc = new OmsRpcClient();
+		const rpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const emitEvent = (
 			rpc as unknown as {
 				emitEvent: (event: unknown) => void;
 			}
 		).emitEvent.bind(rpc) as (event: unknown) => void;
 		let resolved = false;
-		const waitPromise = rpc.waitForAgentEnd(2000).then(() => {
+		const waitPromise = rpc.waitForAgentEnd(500).then(() => {
 			resolved = true;
 		});
 
@@ -183,7 +183,7 @@ describe("PipelineManager resume pipeline", () => {
 describe("PipelineManager issuer lifecycle recovery", () => {
 	test("runIssuerForTask consumes advance_lifecycle record on normal exit (no forceKill)", async () => {
 		const task = makeTask("task-advance");
-		const rpc = new OmsRpcClient();
+		const rpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const issuer = makeIssuer(task.id, rpc, "issuer-task-advance");
 		const finishCalls: Array<{ id: string; status: "done" | "stopped" | "dead" }> = [];
 		const logFinishedCalls: string[] = [];
@@ -266,7 +266,7 @@ describe("PipelineManager issuer lifecycle recovery", () => {
 
 	test("runIssuerForTask consumes advance_lifecycle record when agent is force-killed", async () => {
 		const task = makeTask("task-force-kill");
-		const rpc = new OmsRpcClient();
+		const rpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const issuer = makeIssuer(task.id, rpc, "issuer-task-force-kill");
 		const finishCalls: Array<{ id: string; status: "done" | "stopped" | "dead" }> = [];
 		const logFinishedCalls: string[] = [];
@@ -351,8 +351,8 @@ describe("PipelineManager issuer lifecycle recovery", () => {
 
 	test("runIssuerForTask sends a resume kickoff when recovering with a session id", async () => {
 		const task = makeTask("task-resume-kickoff");
-		const initialRpc = new OmsRpcClient();
-		const resumedRpc = new OmsRpcClient();
+		const initialRpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
+		const resumedRpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		let resumeKickoff: string | undefined;
 		let showCalls = 0;
 		let pipeline: PipelineManager;
@@ -437,7 +437,7 @@ describe("PipelineManager issuer lifecycle recovery", () => {
 
 	test("runIssuerForTask aborts recovery when task is closed after initial issuer failure", async () => {
 		const task: TaskIssue = { ...makeTask("task-closed-recovery"), status: "closed" };
-		const initialRpc = new OmsRpcClient();
+		const initialRpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const initialIssuer = makeIssuer(task.id, initialRpc, "issuer-task-closed-initial");
 		initialIssuer.sessionId = "closed-session-1";
 		let showCalls = 0;
@@ -506,7 +506,7 @@ describe("PipelineManager issuer lifecycle recovery", () => {
 
 	test("runIssuerForTask aborts recovery when task is blocked after initial issuer failure", async () => {
 		const task: TaskIssue = { ...makeTask("task-blocked-recovery"), status: "blocked" };
-		const initialRpc = new OmsRpcClient();
+		const initialRpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const initialIssuer = makeIssuer(task.id, initialRpc, "issuer-task-blocked-initial");
 		initialIssuer.sessionId = "blocked-session-1";
 		let showCalls = 0;
@@ -575,7 +575,7 @@ describe("PipelineManager issuer lifecycle recovery", () => {
 
 	test("runIssuerForTask aborts recovery when task is deleted after initial issuer failure", async () => {
 		const task = makeTask("task-deleted-recovery");
-		const initialRpc = new OmsRpcClient();
+		const initialRpc = new OmsRpcClient({ autoLoopContinuationMs: 0 });
 		const initialIssuer = makeIssuer(task.id, initialRpc, "issuer-task-deleted-initial");
 		initialIssuer.sessionId = "deleted-session-1";
 		let showCalls = 0;

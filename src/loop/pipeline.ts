@@ -565,6 +565,12 @@ export class PipelineManager {
 				return makeAbortResult(`${agentName} stopped externally — pipeline replaced by singularity`);
 			}
 
+			// Auto-loop continuation means the agent restarted itself via an extension;
+			// do not retry because the same process is still running.
+			if (!result.ok && result.reason?.includes("continued via auto-loop")) {
+				return makeFailureResult(`${agentName} continued via auto-loop`);
+			}
+
 			const failure: AttemptFailure = {
 				reason: result.reason,
 				sessionId: result.sessionId,
@@ -679,7 +685,32 @@ export class PipelineManager {
 
 		const agentStatus = this.registry.get(agent.id)?.status === "stopped" ? ("stopped" as const) : undefined;
 
-		const record = this.takeLifecycleRecord(task.id);
+		let record = this.takeLifecycleRecord(task.id);
+
+		if (!record) {
+			// Abnormal exit without lifecycle signal: wait up to 30s for a newly spawned
+			// agent or 10s for an older agent to see if an auto-loop extension restarts
+			// the agent (steer -> agent_start).
+			const ageMs = Date.now() - (agent.spawnedAt ?? 0);
+			const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+			const continued = await agentRpc.waitForAutoLoopContinuation(maxWaitMs);
+			if (continued) {
+				this.loopLog(`${agentLabel} continued via auto-loop for ${task.id}`, "info", {
+					taskId: task.id,
+					mode: step.mode,
+				});
+				return {
+					ok: false,
+					reason: `${agentName} continued via auto-loop`,
+					sessionId: captureSessionId(),
+					missingAdvanceTool: false,
+					agentStatus,
+				};
+			}
+			// Re-check in case advance_lifecycle arrived during the wait window.
+			record = this.takeLifecycleRecord(task.id);
+		}
+
 		await this.finishAgent(agent, "done");
 		await this.logAgentFinished(agent, text ?? "");
 		if (!record) {

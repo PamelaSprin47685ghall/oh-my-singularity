@@ -77,7 +77,6 @@ export class RpcHandlerManager {
 
 	private readonly rpcHandlersAttached = new Set<string>();
 	private readonly retryAttemptsByTypeAndTask = new Map<string, number>();
-	private readonly agentStartTimes = new Map<string, number>();
 
 	private retryKey(agentType: string, taskId: string): string {
 		return `${agentType}:${taskId}`;
@@ -231,10 +230,6 @@ export class RpcHandlerManager {
 
 			this.debounceRpcDirty();
 
-			if (type === "agent_start") {
-				this.agentStartTimes.set(agent.id, Date.now());
-			}
-
 			if (type === "agent_end") {
 				void this.onAgentEnd(agent);
 			}
@@ -296,19 +291,17 @@ export class RpcHandlerManager {
 				await this.logAgentFinished(agent, workerOutput);
 				const advance = this.takeLifecycleRecord(taskId);
 				if (!advance) {
-					// Allow a short window for the agent to begin another turn
-					// (e.g. via an auto-loop extension that sends a steer after agent_end).
-					const lastStartBefore = this.agentStartTimes.get(agent.id) ?? 0;
-					await Bun.sleep(3000);
-					const lastStartAfter = this.agentStartTimes.get(agent.id) ?? 0;
-					if (lastStartAfter > lastStartBefore) {
-						// A new turn started after agent_end; leave the agent running.
+					const rpc = agent.rpc;
+					const ageMs = Date.now() - (agent.spawnedAt ?? 0);
+					const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+					const continued = rpc && rpc instanceof OmsRpcClient ? await rpc.waitForAutoLoopContinuation(maxWaitMs) : false;
+					if (continued) {
+						// Auto-loop extension restarted the agent; leave it running.
 						this.wake();
 						return;
 					}
 				}
 				await this.finishAgent(agent, "done");
-				this.agentStartTimes.delete(agent.id);
 				if (advance) {
 					this.clearRetryAttempts("worker", taskId);
 					try {
@@ -404,19 +397,17 @@ export class RpcHandlerManager {
 				await this.logAgentFinished(agent, finisherOutput);
 				let record = this.takeLifecycleRecord(taskId);
 				if (!record && taskId) {
-					// Allow a short window for the agent to begin another turn
-					// (e.g. via an auto-loop extension that sends a steer after agent_end).
-					const lastStartBefore = this.agentStartTimes.get(agent.id) ?? 0;
-					await Bun.sleep(3000);
-					const lastStartAfter = this.agentStartTimes.get(agent.id) ?? 0;
-					if (lastStartAfter > lastStartBefore) {
-						// A new turn started after agent_end; leave the agent running.
+					const rpc = agent.rpc;
+					const ageMs = Date.now() - (agent.spawnedAt ?? 0);
+					const maxWaitMs = ageMs < 30_000 ? 30_000 : 10_000;
+					const continued = rpc && rpc instanceof OmsRpcClient ? await rpc.waitForAutoLoopContinuation(maxWaitMs) : false;
+					if (continued) {
+						// Auto-loop extension restarted the agent; leave it running.
 						this.wake();
 						return;
 					}
 				}
 				await this.finishAgent(agent, "done");
-				this.agentStartTimes.delete(agent.id);
 				if (!taskId) {
 					this.wake();
 					return;
@@ -717,7 +708,6 @@ export class RpcHandlerManager {
 	}
 
 	private async onRpcExit(agent: AgentInfo, event: unknown): Promise<void> {
-		this.agentStartTimes.delete(agent.id);
 		const rec = asRecord(event);
 		const exitCode = rec && typeof rec.exitCode === "number" ? rec.exitCode : null;
 		const rpcExitError = rec && typeof rec.error === "string" ? rec.error.trim() : "";

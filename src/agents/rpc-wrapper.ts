@@ -21,6 +21,9 @@ export interface OmsRpcClientOptions {
 
 	/** Max stderr buffer size (chars). Defaults to 50k. */
 	maxStderrChars?: number;
+
+	/** Max time to wait for an auto-loop extension to restart the agent after agent_end (ms). Defaults to 30s. */
+	autoLoopContinuationMs?: number;
 }
 
 type RpcResponse = {
@@ -72,13 +75,13 @@ export class OmsRpcClient {
 	private stderrBuf = "";
 	private sessionId: string | null = null;
 	#suppressAgentEndCount = 0;
-	#lastAgentStartTime = 0;
 
 	constructor(opts?: OmsRpcClientOptions) {
 		this.opts = {
 			ompCli: opts?.ompCli ?? "omp",
 			requestTimeoutMs: opts?.requestTimeoutMs ?? 30_000,
 			maxStderrChars: opts?.maxStderrChars ?? 50_000,
+			autoLoopContinuationMs: opts?.autoLoopContinuationMs ?? 30_000,
 			...opts,
 		};
 	}
@@ -227,35 +230,16 @@ export class OmsRpcClient {
 		return new Promise((resolve, reject) => {
 			let settled = false;
 			let timer: Timer | null = null;
-			let debounceTimer: Timer | null = null;
-
 			const unsubscribe = this.onEvent(event => {
 				if (settled) return;
 				const rec =
 					event && typeof event === "object" && !Array.isArray(event) ? (event as { type?: unknown }) : null;
-				if (rec?.type === "agent_start") {
-					if (debounceTimer) {
-						clearTimeout(debounceTimer);
-						debounceTimer = null;
-					}
-					return;
-				}
 				if (rec?.type === "agent_end") {
-					// Debounce: an auto-loop extension may send a steer and trigger a new
-					// agent_start shortly after agent_end. Wait briefly to confirm the turn
-					// is truly finished before resolving.
-					if (debounceTimer) clearTimeout(debounceTimer);
-					debounceTimer = setTimeout(() => {
-						if (settled) return;
-						settled = true;
-						if (timer) clearTimeout(timer);
-						unsubscribe();
-						resolve();
-					}, 800);
-					return;
-				}
-				if (rec?.type === "rpc_exit") {
-					if (debounceTimer) clearTimeout(debounceTimer);
+					settled = true;
+					if (timer) clearTimeout(timer);
+					unsubscribe();
+					resolve();
+				} else if (rec?.type === "rpc_exit") {
 					settled = true;
 					if (timer) clearTimeout(timer);
 					unsubscribe();
@@ -266,10 +250,42 @@ export class OmsRpcClient {
 			timer = setTimeout(() => {
 				if (settled) return;
 				settled = true;
-				if (debounceTimer) clearTimeout(debounceTimer);
 				unsubscribe();
 				reject(new Error(this.formatErr(`Timeout waiting for agent_end after ${timeoutMs}ms`)));
 			}, timeoutMs);
+		});
+	}
+
+	/**
+	 * After agent_end, wait up to maxWaitMs to see if the agent starts another turn
+	 * (e.g. via an auto-loop extension that sends a steer). Returns true if a new
+	 * agent_start is detected, false on timeout or rpc_exit.
+	 */
+	waitForAutoLoopContinuation(maxWaitMs?: number): Promise<boolean> {
+		const ms = maxWaitMs ?? (this.opts as unknown as { autoLoopContinuationMs?: number }).autoLoopContinuationMs ?? 30_000;
+		return new Promise(resolve => {
+			let settled = false;
+			const unsubscribe = this.onEvent(event => {
+				if (settled) return;
+				const rec =
+					event && typeof event === "object" && !Array.isArray(event) ? (event as { type?: unknown }) : null;
+				if (rec?.type === "agent_start") {
+					settled = true;
+					unsubscribe();
+					resolve(true);
+				} else if (rec?.type === "rpc_exit") {
+					settled = true;
+					unsubscribe();
+					resolve(false);
+				}
+			});
+
+			const timer = setTimeout(() => {
+				if (settled) return;
+				settled = true;
+				unsubscribe();
+				resolve(false);
+			}, ms);
 		});
 	}
 
@@ -487,9 +503,6 @@ export class OmsRpcClient {
 		const sessionId = extractSessionId(event);
 		if (sessionId) this.sessionId = sessionId;
 		const rec = event && typeof event === "object" && !Array.isArray(event) ? (event as { type?: unknown }) : null;
-		if (rec?.type === "agent_start") {
-			this.#lastAgentStartTime = Date.now();
-		}
 		if (rec?.type === "agent_end" && this.#suppressAgentEndCount > 0) {
 			this.#suppressAgentEndCount -= 1;
 			return;
