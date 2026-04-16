@@ -228,7 +228,6 @@ export class OmsRpcClient {
 			let settled = false;
 			let timer: Timer | null = null;
 			let debounceTimer: Timer | null = null;
-			const endTimestampAtSubscribe = this.#lastAgentStartTime;
 
 			const unsubscribe = this.onEvent(event => {
 				if (settled) return;
@@ -263,18 +262,6 @@ export class OmsRpcClient {
 					reject(new Error(this.formatErr("RPC process exited before agent_end")));
 				}
 			});
-
-			// Safety-net: if an agent_end already fired just before subscribe and no new
-			// agent_start followed, resolve after a brief delay so callers don't hang.
-			if (this.#lastAgentStartTime === endTimestampAtSubscribe && this.#lastAgentStartTime > 0) {
-				debounceTimer = setTimeout(() => {
-					if (settled) return;
-					settled = true;
-					if (timer) clearTimeout(timer);
-					unsubscribe();
-					resolve();
-				}, 800);
-			}
 
 			timer = setTimeout(() => {
 				if (settled) return;

@@ -299,7 +299,7 @@ export class RpcHandlerManager {
 					// Allow a short window for the agent to begin another turn
 					// (e.g. via an auto-loop extension that sends a steer after agent_end).
 					const lastStartBefore = this.agentStartTimes.get(agent.id) ?? 0;
-					await Bun.sleep(800);
+					await Bun.sleep(3000);
 					const lastStartAfter = this.agentStartTimes.get(agent.id) ?? 0;
 					if (lastStartAfter > lastStartBefore) {
 						// A new turn started after agent_end; leave the agent running.
@@ -407,7 +407,7 @@ export class RpcHandlerManager {
 					// Allow a short window for the agent to begin another turn
 					// (e.g. via an auto-loop extension that sends a steer after agent_end).
 					const lastStartBefore = this.agentStartTimes.get(agent.id) ?? 0;
-					await Bun.sleep(800);
+					await Bun.sleep(3000);
 					const lastStartAfter = this.agentStartTimes.get(agent.id) ?? 0;
 					if (lastStartAfter > lastStartBefore) {
 						// A new turn started after agent_end; leave the agent running.

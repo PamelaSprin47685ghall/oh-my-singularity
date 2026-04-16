@@ -1628,7 +1628,9 @@ describe("AgentLoop finisher exit routing", () => {
 		expect(calls.setAgentState).toContainEqual({ id: "agent-finisher:task-respawn:old", state: "done" });
 	});
 
-	test("finisher gives up after repeated exits without close/advance", async () => {
+	test(
+		"finisher gives up after repeated exits without close/advance",
+		async () => {
 		const fixture = createLoopFixture();
 		const { loop, calls } = fixture;
 		(loop as unknown as { running: boolean }).running = true;
@@ -1682,7 +1684,8 @@ describe("AgentLoop finisher exit routing", () => {
 		expect(calls.comment[0]?.taskId).toBe("task-retry-limit");
 		expect(calls.comment[0]?.text).toContain("Finisher retries exhausted");
 		expect(calls.comment[0]?.text).toContain(`${LIMIT_AGENT_MAX_RETRIES}`);
-	});
+	},
+	15000);
 
 	test("finisher advance_lifecycle routes worker, issuer, and defer actions", async () => {
 		const runCase = async (action: "worker" | "issuer" | "defer") => {
